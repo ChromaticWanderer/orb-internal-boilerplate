@@ -27,12 +27,31 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
+## Included Features
+
+| Feature | Description | Config Required |
+|---------|-------------|-----------------|
+| CI/CD | GitHub Actions pipeline (lint, type-check, test, build) | Add secrets to GitHub repo |
+| Testing | Vitest + Testing Library (`npm test`) | None |
+| Rate Limiting | Upstash Redis sliding window | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` |
+| Email | Resend with welcome, notification, password reset templates | `RESEND_API_KEY`, `EMAIL_FROM` |
+| Error Tracking | Sentry (client, server, edge) | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
+| File Upload | S3-compatible presigned URL uploads with drag-and-drop UI | `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_ENDPOINT` |
+| Cron Jobs | Vercel Cron with example daily cleanup | `CRON_SECRET` |
+| PDF Generation | @react-pdf/renderer with example report template | None |
+| Audit Logging | Supabase audit_logs table with RLS | Run migration in `supabase/migrations/` |
+| PWA | Progressive Web App support | Add icon files to `public/icons/` |
+
 ## Configuration Checklist
 
 - [ ] `package.json` — name and dev port updated
 - [ ] `.env.local` — Supabase and WorkOS keys configured
 - [ ] `CLAUDE.md` — project name and description updated
 - [ ] WorkOS redirect URI configured: `http://localhost:30XX/api/auth/callback`
+- [ ] `public/manifest.json` — app name and theme color updated
+- [ ] `public/icons/` — add icon-192x192.png and icon-512x512.png
+- [ ] Optional: configure Sentry, Resend, Upstash, S3 env vars in `.env.local`
+- [ ] Optional: run `supabase/migrations/00001_audit_logs.sql` against your database
 
 ## Supabase Mode
 
