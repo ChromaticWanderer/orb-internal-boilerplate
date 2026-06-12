@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { WorkOS } from "@workos-inc/node";
 import { cookies } from "next/headers";
-
-const workos = new WorkOS(process.env.WORKOS_API_KEY!);
+import {
+  getWorkos,
+  SESSION_COOKIE_NAME,
+  SESSION_COOKIE_OPTIONS,
+} from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -11,43 +13,45 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No code provided" }, { status: 400 });
   }
 
+  const cookiePassword = process.env.WORKOS_COOKIE_PASSWORD;
+  if (!cookiePassword || cookiePassword.length < 32) {
+    console.error(
+      "WORKOS_COOKIE_PASSWORD is missing or too short (min 32 chars)"
+    );
+    return NextResponse.redirect(
+      new URL("/login?error=server_config", request.url)
+    );
+  }
+
   try {
-    const { user, organizationId } =
-      await workos.userManagement.authenticateWithCode({
+    const { user, sealedSession } =
+      await getWorkos().userManagement.authenticateWithCode({
         code,
         clientId: process.env.WORKOS_CLIENT_ID!,
+        session: {
+          sealSession: true,
+          cookiePassword,
+        },
       });
+
+    if (!sealedSession) {
+      console.error("WorkOS returned no sealed session");
+      return NextResponse.redirect(
+        new URL("/login?error=auth_failed", request.url)
+      );
+    }
 
     const cookieStore = await cookies();
 
-    // Set session cookies
-    cookieStore.set("workos_session", "authenticated", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+    // The encrypted sealed session is the ONLY authoritative credential.
+    cookieStore.set(SESSION_COOKIE_NAME, sealedSession, SESSION_COOKIE_OPTIONS);
 
+    // Display-only convenience cookie — NEVER trusted for auth decisions.
     cookieStore.set("user_email", user.email, {
-      httpOnly: false, // Readable by client-side auth hook
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      ...SESSION_COOKIE_OPTIONS,
+      httpOnly: true,
     });
 
-    if (organizationId) {
-      cookieStore.set("organization_id", organizationId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      });
-    }
-
-    // Redirect to dashboard
     const redirectUrl = new URL("/", request.url);
     return NextResponse.redirect(redirectUrl);
   } catch (error) {

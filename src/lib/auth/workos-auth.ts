@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getVerifiedSession } from "@/lib/auth/session";
 
 export interface AuthUser {
   id: string;
@@ -18,26 +18,27 @@ export interface AuthResult {
 }
 
 /**
- * Get the current authenticated user from WorkOS session cookies.
- * Queries the shared users table to resolve user details.
+ * Get the current authenticated user.
+ *
+ * Identity comes from the verified WorkOS sealed session (JWT-verified,
+ * never from a client-settable cookie). The users table then resolves
+ * app-level role / organization / status for that verified email.
  */
 export async function getCurrentUser(): Promise<AuthResult> {
   try {
-    const cookieStore = await cookies();
-    const userEmail = cookieStore.get("user_email")?.value;
-    const sessionToken = cookieStore.get("workos_session")?.value;
+    const session = await getVerifiedSession();
 
-    if (!userEmail || !sessionToken) {
+    if (!session) {
       return { authenticated: false, user: null, error: "No active session" };
     }
 
     const supabase = createAdminClient();
 
-    // Fetch user from shared users table
+    // Resolve app-level details for the VERIFIED email
     const { data: user, error } = await supabase
       .from("users")
       .select("id, email, name, role, organization_id, status")
-      .eq("email", userEmail)
+      .eq("email", session.email)
       .single();
 
     if (error || !user) {

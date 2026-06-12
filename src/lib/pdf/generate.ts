@@ -1,4 +1,4 @@
-import ReactPDF from "@react-pdf/renderer";
+import ReactPDF, { type DocumentProps } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 
 /**
@@ -10,7 +10,9 @@ import type { ReactElement } from "react";
 export async function generatePdf(
   document: ReactElement
 ): Promise<Buffer> {
-  const stream = await ReactPDF.renderToStream(document);
+  const stream = await ReactPDF.renderToStream(
+    document as ReactElement<DocumentProps>
+  );
 
   const chunks: Uint8Array[] = [];
   for await (const chunk of stream) {

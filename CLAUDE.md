@@ -26,10 +26,16 @@ Internal operational app built from `orb-internal-boilerplate`.
 - `supabase/migrations/` — SQL migrations (audit_logs, etc.)
 
 ## Auth Pattern
-- WorkOS SSO via cookies (workos_session + user_email)
-- Use `getCurrentUser()` / `requireUser()` from `@/lib/auth/workos-auth`
-- Middleware redirects unauthenticated users to /login
-- All dashboard routes are protected
+- WorkOS SSO with **sealed sessions** — the `workos_session` cookie holds an
+  encrypted sealed session created with `sealSession: true` + `WORKOS_COOKIE_PASSWORD`,
+  verified (JWT vs WorkOS JWKS, with transparent refresh) on every request.
+- NEVER trust a plain cookie for identity. The old `workos_session=authenticated`
+  + readable `user_email` pattern was an auth bypass (fixed June 2026).
+- Use `getCurrentUser()` / `requireUser()` from `@/lib/auth/workos-auth` (server)
+  and `useAuth()` (client — fetches `/api/auth/me`; cookies are httpOnly).
+- Session plumbing lives in `@/lib/auth/session.ts`. Middleware verifies the
+  sealed session on protected routes and persists refreshed tokens.
+- `WORKOS_COOKIE_PASSWORD` (32+ chars) is REQUIRED and is per-app/per-Vercel-project.
 
 ## Supabase Pattern
 - Browser client: `@/lib/supabase/client` (client components)
@@ -50,6 +56,11 @@ Internal operational app built from `orb-internal-boilerplate`.
 - **PWA** — Progressive Web App via @ducanh2912/next-pwa; manifest at `public/manifest.json`
 
 ## Conventions
+- **In-app help stays in sync**: every feature change updates the matching
+  section of `src/app/(dashboard)/help/page.tsx` in the SAME change
+- RLS helpers that read `users` must be `SECURITY DEFINER` (recursion) and
+  check for empty-string from `current_setting()` — see
+  `supabase/migrations/00002_rls_helpers_template.sql`
 - Use `@/*` path aliases (maps to `./src/*`)
 - Use `"use client"` only where needed
 - Use `cn()` from `@/lib/utils` for conditional classes

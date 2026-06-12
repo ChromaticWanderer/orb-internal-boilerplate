@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import type { AuthUser } from "@/types";
 
 /**
- * Client-side auth hook. Reads the user_email cookie and fetches user details.
- * For server components, use getCurrentUser() from @/lib/auth/workos-auth instead.
+ * Client-side auth hook. Fetches the verified user from /api/auth/me.
+ * The session cookie is httpOnly (sealed session) — client JS cannot read
+ * identity from cookies, and must never try to.
+ * For server components, use getCurrentUser() from @/lib/auth/workos-auth.
  */
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -16,38 +17,13 @@ export function useAuth() {
   useEffect(() => {
     async function fetchUser() {
       try {
-        // Read email from cookie (set during WorkOS auth callback)
-        const email = document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("user_email="))
-          ?.split("=")[1];
-
-        if (!email) {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) {
           setLoading(false);
           return;
         }
-
-        const supabase = createClient();
-        const { data, error: dbError } = await supabase
-          .from("users")
-          .select("id, email, name, role, organization_id, status")
-          .eq("email", decodeURIComponent(email))
-          .single();
-
-        if (dbError || !data) {
-          setError("Failed to load user");
-          setLoading(false);
-          return;
-        }
-
-        setUser({
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          role: data.role,
-          organization_id: data.organization_id,
-          status: data.status,
-        });
+        const data = await res.json();
+        setUser(data.user ?? null);
       } catch {
         setError("Authentication error");
       } finally {

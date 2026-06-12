@@ -1,6 +1,9 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+// Sealed-session JWT verification needs Node APIs (WorkOS SDK + JWKS)
+export const runtime = "nodejs";
+
 export async function middleware(request: NextRequest) {
   return await updateSession(request);
 }
